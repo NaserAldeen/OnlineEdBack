@@ -1,8 +1,17 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
-from .models import Item, CustomUser, Branch, Order
+from .models import Item, CustomUser, Branch, Order, TeacherClass, Lesson
 
+class TeacherClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeacherClass
+        fields = "__all__"
+
+class LessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lesson
+        fields = "__all__"
 
 class BranchSerializer(serializers.ModelSerializer):
     class  Meta:
@@ -32,6 +41,7 @@ class WorkerSerializer(serializers.ModelSerializer):
 
     def get_username(self, obj):
         return obj.user.username
+
 
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()

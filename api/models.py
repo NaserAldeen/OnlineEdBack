@@ -26,16 +26,21 @@ class Branch(models.Model):
 class CustomUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     type = models.CharField(max_length=256, blank=True, null=True)
+    name = models.CharField(max_length=256, blank=True, null=True)
 
-    phone = models.CharField(max_length=256, blank=True, null=True, default="")
-    full_name = models.CharField(max_length=256, blank=True, null=True, default="")
-    address = models.CharField(max_length=256, blank=True, null=True, default="")
 
-    location = models.CharField(max_length=256, blank=True, null=True, default="")
-    working_hours = models.CharField(max_length=256, blank=True, null=True, default="")
-    description = models.CharField(max_length=256, blank=True, null=True, default="")
-    # branch= models.CharField(max_length=256, blank=True, null=True, default="")
-    branch = models.ForeignKey(Branch, on_delete=models.CASCADE,  blank=True, null=True, related_name="workers", default=None)
+class TeacherClass(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    name = models.CharField(max_length=256, blank=True, null=True)
+    description = models.TextField(blank=True, unique=False, default="")
+    students = models.ManyToManyField(CustomUser, blank=True, related_name="classes")
+
+class Lesson(models.Model):
+    teacher_class =  models.ForeignKey(TeacherClass, on_delete=models.CASCADE)
+    name = models.CharField(max_length=256, blank=True, null=True)
+    description = models.CharField(max_length=256, blank=True, null=True)
+    sort_order = models.PositiveIntegerField(blank=True, unique=False, default=0)
+
 # Create your models here.
 
 

@@ -4,11 +4,79 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
-from .models import CustomUser, Item, Branch, Order
+from .models import CustomUser, Item, Branch, Order, TeacherClass, Lesson
 from django.contrib.auth.models import User
-from .serializers import ItemSerializer, WorkerSerializer, BranchSerializer, OrderSerializer
+from .serializers import ItemSerializer, WorkerSerializer, BranchSerializer, OrderSerializer, TeacherClassSerializer, LessonSerializer
 from datetime import  datetime
 
+
+class FetchClasses(APIView):
+    def get(self, request):
+        classes = TeacherClass.objects.filter(user__user=request.user)
+
+        return Response({"classes": TeacherClassSerializer(classes, many=True).data})
+
+
+class CreateClass(APIView):
+    def post(self, request):
+        name = request.data['name']
+        description = request.data['description']
+        teacher = CustomUser.objects.get(user=request.user)
+        classe = TeacherClass.objects.create(user=teacher, name=name, description=description)
+
+        classes = TeacherClass.objects.filter(user=teacher)
+
+        return Response({"classes": TeacherClassSerializer(classes, many=True).data})
+
+
+
+class SaveClassName(APIView):
+    def post(self, request):
+        classe = TeacherClass.objects.get(id=request.data['id'])
+        classe.name = request.data['value']
+        classe.save()
+        classes = TeacherClass.objects.filter(user__user=request.user)
+
+        return Response({"classes": TeacherClassSerializer(classes, many=True).data})
+
+
+
+
+class SaveClassDescription(APIView):
+    def post(self, request):
+        classe = TeacherClass.objects.get(id=request.data['id'])
+        classe.description = request.data['value']
+        classe.save()
+        classes = TeacherClass.objects.filter(user__user=request.user)
+
+        return Response({"classes": TeacherClassSerializer(classes, many=True).data})
+
+
+class DeleteClass(APIView):
+    def post(self, request):
+        classe = TeacherClass.objects.get(id=request.data['id'])
+        classe.delete()
+        classes = TeacherClass.objects.filter(user__user=request.user)
+
+        return Response({"classes": TeacherClassSerializer(classes, many=True).data})
+
+
+class FetchLessonsAndUsers(APIView):
+    def post(self, request):
+        class_id = request.data['class_id']
+        classe = TeacherClass.objects.get(id=class_id)
+        lessons = Lesson.objects.filter(teacher_class=classe).order_by("sort_order")
+        users = classe.students.all()
+
+        return Response({"lessons": LessonSerializer(lessons, many=True).data, "students": WorkerSerializer(users, many=True).data})
+
+class CreateLesson(APIView):
+    def post(self, request):
+        classe = TeacherClass.objects.get(id=request.data['class_id'])
+        lesson = Lesson.objects.create(teacher_class=classe, name=request.data['name'], description=request.data['description'], sort_order=int(request.data['sort_order']))
+
+        return Response()
+        
 class UserCreateAPIView(CreateAPIView):
     serializer_class = UserCreateSerializer
 
@@ -18,26 +86,9 @@ class UserCreateAPIView(CreateAPIView):
         userType = self.request.data['type']
         user = User.objects.get(username=self.request.data['username'])
 
-        if userType == "branch":
-            location = self.request.data['location']
-            working_hours = self.request.data['working_hours']
-            address = self.request.data['address']
-            description = self.request.data['description']
-            branch = Branch.objects.create(location=location, working_hours=working_hours, address=address, description=description)
-            custom_user = CustomUser.objects.create(user=user, branch=branch, type="branch", location=location, working_hours=working_hours, address=address, description=description)
 
-        elif userType == "worker":
-            logged_user = self.request.user
-            branch = CustomUser.objects.get(user=logged_user, type="branch").branch
-            civil_id = self.request.data['civil_id']
-            full_name = self.request.data['full_name']
-            custom_user = CustomUser.objects.create(user=user, branch=branch, description=civil_id, full_name=full_name, type="worker")
+        custom_user = CustomUser.objects.create(user=user, type=userType, name=self.request.data['name'])
 
-        elif userType == "customer":
-            phone = self.request.data['phone']
-            full_name = self.request.data['full_name']
-            address = self.request.data['address']
-            custom_user = CustomUser.objects.create(user=user, type="customer", phone=phone, full_name=full_name, address=address)
 
 class UserLoginAPIView(APIView):
     serializer_class = UserLoginSerializer
@@ -49,39 +100,22 @@ class UserLoginAPIView(APIView):
             valid_data = serializer.data
             print(my_data)
             print(request.user)
-            if request.data['type'] == "admin":
-                user =  CustomUser.objects.filter(user__username=request.data['username'], type="admin")
+            if request.data['type'] == "student":
+                user =  CustomUser.objects.filter(user__username=request.data['username'], type="student")
                 if user.exists():
-                    if request.data['username'] == "admin":
-                        print("here")
-                        valid_data = serializer.data
-                        valid_data['type'] = "admin"
+                    valid_data = serializer.data
+                    valid_data['type'] = "student"
                 else:
                     return Response({"-": "You are not allowed to enter"}, HTTP_400_BAD_REQUEST)
 
-            elif request.data['type'] == "customer":
-                user =  CustomUser.objects.filter(user__username=request.data['username'], type="customer")
+            elif request.data['type'] == "teacher":
+                user =  CustomUser.objects.filter(user__username=request.data['username'], type="teacher")
                 if user.exists():
                     valid_data = serializer.data
-                    valid_data['type'] = "customer"
+                    valid_data['type'] = "teacher"
                 else:
                     return Response({"-": "You are not allowed to enter"}, HTTP_400_BAD_REQUEST)
 
-            elif request.data['type'] == "branch":
-                user =  CustomUser.objects.filter(user__username=request.data['username'], type="branch")
-                if user.exists():
-                    valid_data = serializer.data
-                    valid_data['type'] = "branch"
-                else:
-                    return Response({"-": "You are not allowed to enter"}, HTTP_400_BAD_REQUEST)
-
-            elif request.data['type'] == "worker":
-                user =  CustomUser.objects.filter(user__username=request.data['username'], type="worker")
-                if user.exists():
-                    valid_data = serializer.data
-                    valid_data['type'] = "worker"
-                else:
-                    return Response({"-": "You are not allowed to enter"}, HTTP_400_BAD_REQUEST)
 
             else:
                 valid_data['type'] = ""
